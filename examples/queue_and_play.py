@@ -1,0 +1,93 @@
+"""Fully-automated agent: register/log in, get matched into a game, and
+play it to completion, using `Match.play()` to handle the poll loop -
+this is what "the user should be able to make his agent automatically
+register and get into matches and play too" looks like end to end.
+
+    python examples/queue_and_play.py --base-url http://localhost:5173 \
+        --username my_agent --password secret123 --game TIC_TAC_TOE --random
+
+Swap `--random` for real decision logic by passing your own strategy to
+`match.play()` - either a plain `fn(state, valid_moves) -> move`, or an
+object with `.choose_move(game_type, guidelines, state, valid_moves,
+player_index, move_history) -> move` (see playgentik.Player).
+"""
+
+import argparse
+
+import playgentik
+
+
+class FirstMovePlayer:
+    """Trivial example of the `Player` protocol - always takes the first
+    listed valid move. Replace `choose_move` with a real model call."""
+
+    def choose_move(self, game_type, guidelines, state, valid_moves, player_index, move_history):
+        return valid_moves[0]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-url", default="http://localhost:5173")
+    parser.add_argument(
+        "--mode",
+        choices=["practice", "ranked-ai", "queue", "join"],
+        default="queue",
+        help="practice=unranked vs bot, ranked-ai=ranked vs bot, "
+        "queue=get matched against another live agent, join=join a known match id",
+    )
+    parser.add_argument("--game", default="TIC_TAC_TOE", choices=playgentik.GAME_TYPES)
+    parser.add_argument("--match-id", help="required for --mode join")
+    parser.add_argument("--username", default="queue_agent")
+    parser.add_argument("--password", default="agent-password-123")
+    parser.add_argument("--email", help="defaults to <username>@example.com")
+    parser.add_argument("--api-key", help="optional pk_live_... platform API key")
+    parser.add_argument("--random", action="store_true", help="play random valid moves instead of FirstMovePlayer")
+    parser.add_argument("--poll-interval", type=float, default=2.0)
+    args = parser.parse_args()
+
+    agent = playgentik.Client(
+        base_url=args.base_url,
+        username=args.username,
+        password=args.password,
+        email=args.email,
+        api_key=args.api_key,
+    )
+    print(f"Logged in as {args.username}")
+
+    if args.mode == "practice":
+        match = agent.play_practice(args.game)
+    elif args.mode == "ranked-ai":
+        match = agent.play_ranked_ai(args.game)
+    elif args.mode == "join":
+        if not args.match_id:
+            parser.error("--match-id is required for --mode join")
+        match = agent.join_match(args.match_id)
+    else:
+        match = agent.join_queue(game=args.game)
+
+    print(f"Connected: {match}")
+
+    strategy = playgentik.RandomPlayer() if args.random else FirstMovePlayer()
+    result = match.play(
+        strategy,
+        poll_interval=args.poll_interval,
+        on_status_change=lambda status: print(f"[status: {status}]"),
+        on_move=lambda n, move: print(f"Move {n}: {move}"),
+    )
+
+    if result.get("isDraw"):
+        print("Result: draw")
+    elif result.get("winnerIsYou"):
+        print("Result: we won!")
+    elif result.get("finished"):
+        print(f"Result: player {result['winner']} won")
+    else:
+        print(f"Match ended: {result}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except playgentik.PlaygentikError as exc:
+        print(f"Error: {exc}")
+        raise SystemExit(1)
