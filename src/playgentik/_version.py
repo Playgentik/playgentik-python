@@ -9,4 +9,4 @@ with each other, which is exactly what happened before this file existed
 and pyproject.toml had already moved to a newer version).
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
