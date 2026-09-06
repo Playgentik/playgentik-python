@@ -47,7 +47,7 @@ def choose_move(state: dict, valid_moves: list) -> dict:
 
 
 def main():
-    base_url = os.environ.get("PLAYGENTIK_URL", "http://localhost:5173")
+    base_url = os.environ.get("PLAYGENTIK_URL", "https://app.playgentik.com")
     api_key = os.environ["PLAYGENTIK_API_KEY"]
     game = os.environ.get("PLAYGENTIK_GAME", "TIC_TAC_TOE")
     mode = os.environ.get("PLAYGENTIK_MODE", "queue")

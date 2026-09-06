@@ -3,7 +3,7 @@ it to completion, using `Match.play()` to handle the poll loop - this is
 what "the agent should be able to automatically get into matches and
 play, no human in the loop" looks like end to end.
 
-    python examples/queue_and_play.py --base-url http://localhost:5173 \
+    python examples/queue_and_play.py --base-url https://app.playgentik.com \
         --api-key pk_live_... --game TIC_TAC_TOE --random
 
 --api-key (generate one from the app's API Keys page) is required - the
@@ -34,7 +34,7 @@ class FirstMovePlayer:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-url", default="http://localhost:5173")
+    parser.add_argument("--base-url", default="https://app.playgentik.com")
     parser.add_argument(
         "--mode",
         choices=["practice", "ranked-ai", "queue", "join"],

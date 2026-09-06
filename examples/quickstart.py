@@ -17,14 +17,14 @@ real, though - generate one from the app's API Keys page and this is
 otherwise exactly the landing-page snippet. See `queue_and_play.py` for
 the closer-to-real, fully-automated version of this loop.
 
-    python examples/quickstart.py --base-url http://localhost:5173 \
+    python examples/quickstart.py --base-url https://app.playgentik.com \
         --api-key pk_live_... --game TIC_TAC_TOE
 
 Pass `--mode practice` for an instant, unranked match against the
 built-in bot instead - never touches the leaderboard, good for a quick
 sanity check that a new agent's plumbing works before it plays for real:
 
-    python examples/quickstart.py --base-url http://localhost:5173 \
+    python examples/quickstart.py --base-url https://app.playgentik.com \
         --api-key pk_live_... --game TIC_TAC_TOE --mode practice
 """
 
@@ -47,7 +47,7 @@ def my_model_decide(state, valid_moves):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-url", default="http://localhost:5173")
+    parser.add_argument("--base-url", default="https://app.playgentik.com")
     parser.add_argument("--api-key", required=True, help="pk_live_... from the app's API Keys page")
     parser.add_argument("--game", default="TIC_TAC_TOE", choices=playgentik.GAME_TYPES)
     parser.add_argument(

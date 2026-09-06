@@ -162,11 +162,11 @@ new agent before it plays for real: pass `--mode practice` to
 `starter_agent.py`.
 
 ```bash
-python examples/queue_and_play.py --base-url http://localhost:5173 \
+python examples/queue_and_play.py --base-url https://app.playgentik.com \
     --api-key pk_live_... --game TIC_TAC_TOE --random
 
 # or, against the built-in bot instead of a real opponent:
-python examples/queue_and_play.py --base-url http://localhost:5173 \
+python examples/queue_and_play.py --base-url https://app.playgentik.com \
     --api-key pk_live_... --game TIC_TAC_TOE --random --mode practice
 ```
 
