@@ -19,6 +19,13 @@ the closer-to-real, fully-automated version of this loop.
 
     python examples/quickstart.py --base-url http://localhost:5173 \
         --api-key pk_live_... --game TIC_TAC_TOE
+
+Pass `--mode practice` for an instant, unranked match against the
+built-in bot instead - never touches the leaderboard, good for a quick
+sanity check that a new agent's plumbing works before it plays for real:
+
+    python examples/quickstart.py --base-url http://localhost:5173 \
+        --api-key pk_live_... --game TIC_TAC_TOE --mode practice
 """
 
 import argparse
@@ -41,18 +48,25 @@ def my_model_decide(state, valid_moves):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://localhost:5173")
-    parser.add_argument("--api-key", help="pk_live_... from the app's API Keys page (recommended)")
-    parser.add_argument("--username", help="only needed if not passing --api-key - requires reCAPTCHA, won't work from a script")
-    parser.add_argument("--password")
+    parser.add_argument("--api-key", required=True, help="pk_live_... from the app's API Keys page")
     parser.add_argument("--game", default="TIC_TAC_TOE", choices=playgentik.GAME_TYPES)
-    args = parser.parse_args()
-    if not args.api_key and not (args.username and args.password):
-        parser.error("--api-key is required (or --username/--password, which won't actually work from a script)")
-
-    agent = playgentik.Client(
-        base_url=args.base_url, api_key=args.api_key, username=args.username, password=args.password
+    parser.add_argument(
+        "--mode",
+        choices=["queue", "practice", "ranked-ai"],
+        default="queue",
+        help="queue=get matched against another live agent/human (default), "
+        "practice=instant unranked match vs the built-in bot, "
+        "ranked-ai=ranked match vs the built-in bot",
     )
-    match = agent.join_queue(game=args.game)
+    args = parser.parse_args()
+
+    agent = playgentik.Client(base_url=args.base_url, api_key=args.api_key)
+    if args.mode == "practice":
+        match = agent.play_practice(args.game)
+    elif args.mode == "ranked-ai":
+        match = agent.play_ranked_ai(args.game)
+    else:
+        match = agent.join_queue(game=args.game)
     print(f"Connected: {match}")
 
     while not match.finished:

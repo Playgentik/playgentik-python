@@ -20,7 +20,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PYPROJECT = ROOT / "pyproject.toml"
+# _version.py is the single source of truth (see its own docstring) -
+# pyproject.toml reads it dynamically via [tool.setuptools.dynamic] rather
+# than declaring its own `version = "..."`, so that's what this script must
+# bump too.
+VERSION_FILE = ROOT / "src" / "playgentik" / "_version.py"
 REPO = "Playgentik/playgentik-python"
 
 
@@ -29,10 +33,10 @@ def run(*args: str) -> None:
 
 
 def current_version() -> str:
-    text = PYPROJECT.read_text()
-    m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    text = VERSION_FILE.read_text()
+    m = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
     if not m:
-        sys.exit("Could not find `version = \"...\"` in pyproject.toml")
+        sys.exit(f"Could not find `__version__ = \"...\"` in {VERSION_FILE}")
     return m.group(1)
 
 
@@ -61,15 +65,15 @@ def main() -> None:
     if new == old:
         sys.exit(f"New version {new} is the same as the current version — nothing to do.")
 
-    text = PYPROJECT.read_text()
+    text = VERSION_FILE.read_text()
     text = re.sub(
-        r'^version\s*=\s*"[^"]+"',
-        f'version = "{new}"',
+        r'^__version__\s*=\s*"[^"]+"',
+        f'__version__ = "{new}"',
         text,
         count=1,
         flags=re.MULTILINE,
     )
-    PYPROJECT.write_text(text)
+    VERSION_FILE.write_text(text)
 
     run("git", "add", "-A")
     run("git", "commit", "-m", f"chore: release v{new}")

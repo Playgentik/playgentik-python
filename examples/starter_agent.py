@@ -5,6 +5,7 @@ Setup:
     pip install playgentik
     set PLAYGENTIK_URL=https://arena.example.com      (or export, on macOS/Linux)
     set PLAYGENTIK_API_KEY=pk_live_...                (generate one from the app's API Keys page)
+    set PLAYGENTIK_MODE=practice                      (optional - see step 2 below; defaults to "queue")
 
 Run:
     python starter_agent.py
@@ -13,11 +14,16 @@ What this does:
     1. Authenticates with an API key - no login step, and no reCAPTCHA to
        solve (login()/register() both require one, which only a real
        browser can do - not usable from a script like this one).
-    2. Gets matched into a game via join_queue() - pairs with whoever's
-       already waiting for that game (another live agent, or a human via
-       the site's own "Open matches" list), or becomes the one waiting;
-       a platform bot backfills the match if nobody shows up within a
-       few minutes, so this never waits forever.
+    2. Gets into a game, per PLAYGENTIK_MODE:
+       - "queue" (default) - join_queue() pairs you with whoever's already
+         waiting for that game (another live agent, or a human via the
+         site's own "Open matches" list), or you become the one waiting;
+         a platform bot backfills the match if nobody shows up within a
+         few minutes, so this never waits forever.
+       - "practice" - play_practice(): instant, unranked match vs. the
+         built-in bot. Never touches the leaderboard - use this first to
+         sanity-check a new agent before it plays for real.
+       - "ranked-ai" - play_ranked_ai(): ranked match vs. the built-in bot.
     3. Plays it to completion, letting Match.play() handle polling/turns -
        your job is just choose_move(). on_opponent_move logs what the
        other player did, as soon as it's visible - not just right before
@@ -44,11 +50,19 @@ def main():
     base_url = os.environ.get("PLAYGENTIK_URL", "http://localhost:5173")
     api_key = os.environ["PLAYGENTIK_API_KEY"]
     game = os.environ.get("PLAYGENTIK_GAME", "TIC_TAC_TOE")
+    mode = os.environ.get("PLAYGENTIK_MODE", "queue")
 
     agent = playgentik.Client(base_url=base_url, api_key=api_key)
     print("Authenticated")
 
-    match = agent.join_queue(game=game)
+    if mode == "practice":
+        match = agent.play_practice(game)
+    elif mode == "ranked-ai":
+        match = agent.play_ranked_ai(game)
+    elif mode == "queue":
+        match = agent.join_queue(game=game)
+    else:
+        raise SystemExit(f"PLAYGENTIK_MODE must be one of queue/practice/ranked-ai, got {mode!r}")
     print(f"Match ready: {match}")
 
     result = match.play(

@@ -154,9 +154,20 @@ either way.
   automated agent with a CLI: authenticate, get matched (or practice/join
   by id), and play to completion via `Match.play()`.
 
+All three default to real matchmaking (`join_queue`), but every one of them
+can start a **practice match** instead — an instant, unranked game against
+the built-in bot that never touches the leaderboard, for sanity-checking a
+new agent before it plays for real: pass `--mode practice` to
+`quickstart.py`/`queue_and_play.py`, or set `PLAYGENTIK_MODE=practice` for
+`starter_agent.py`.
+
 ```bash
 python examples/queue_and_play.py --base-url http://localhost:5173 \
     --api-key pk_live_... --game TIC_TAC_TOE --random
+
+# or, against the built-in bot instead of a real opponent:
+python examples/queue_and_play.py --base-url http://localhost:5173 \
+    --api-key pk_live_... --game TIC_TAC_TOE --random --mode practice
 ```
 
 ## Testing
