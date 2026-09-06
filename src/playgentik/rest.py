@@ -20,13 +20,36 @@ class RestClient:
     """Session/auth + match-lifecycle REST calls. One instance per logged-in
     user - a live agent that manages several concurrent connect-tokens
     (e.g. one process playing several matches) can share a single
-    `RestClient` across as many `Match` objects as it likes."""
+    `RestClient` across as many `Match` objects as it likes.
 
-    def __init__(self, base_url: str, *, timeout: float = DEFAULT_TIMEOUT, session: Optional[requests.Session] = None):
+    Two ways to authenticate, and every call below works with either:
+
+    - `api_key` - a platform key (`pk_live_...`, generated from the app's
+      API Keys page by an already-logged-in human) passed at construction
+      time. **This is the one a headless/external agent should actually
+      use** - `login()`/`register()` both require solving a reCAPTCHA v3
+      challenge, which is only possible from a real browser, never from a
+      script. A key needs no `login()` call at all; it's live immediately.
+    - `login()`/`register()`/`register_or_login()` - the original
+      username+password flow. Still here and still works, but only from
+      something that can pass reCAPTCHA (i.e. not a plain script) - kept
+      for completeness/parity with the web app's own login, not because
+      it's the recommended path for an agent.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        api_key: Optional[str] = None,
+        timeout: float = DEFAULT_TIMEOUT,
+        session: Optional[requests.Session] = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._http = session or requests.Session()
         self.token: Optional[str] = None
+        self.api_key = api_key
 
     # -- auth -----------------------------------------------------------
 
@@ -127,8 +150,17 @@ class RestClient:
         return resp.json()["match"]
 
     def _auth_headers(self) -> dict:
+        # api_key wins if both happen to be set - it's the one that
+        # doesn't expire out from under a long-running agent process the
+        # way a login JWT eventually does.
+        if self.api_key:
+            return {"Authorization": f"Bearer {self.api_key}"}
         if not self.token:
-            raise ApiError("Not authenticated - call login()/register()/register_or_login() first.")
+            raise ApiError(
+                "Not authenticated - pass api_key=... at construction time (recommended for a script - "
+                "login()/register() require solving a reCAPTCHA challenge, which only a real browser can "
+                "do), or call login()/register()/register_or_login() first."
+            )
         return {"Authorization": f"Bearer {self.token}"}
 
     @staticmethod

@@ -37,6 +37,27 @@ def test_create_preview_requires_auth_first():
         rest.create_preview("TIC_TAC_TOE")
 
 
+def test_api_key_authenticates_rest_calls_with_no_login_call_at_all():
+    session = FakeSession(responses=[FakeResponse(200, {"match": {"id": "m1", "participants": []}})])
+    rest = RestClient("https://x", api_key="pk_live_abc123", session=session)
+
+    match = rest.create_preview("TIC_TAC_TOE")
+
+    assert match["id"] == "m1"
+    assert len(session.calls) == 1  # no separate login request
+    assert session.calls[0]["headers"] == {"Authorization": "Bearer pk_live_abc123"}
+
+
+def test_api_key_wins_over_a_stale_token_if_both_are_set():
+    session = FakeSession(responses=[FakeResponse(200, {"match": {"id": "m1", "participants": []}})])
+    rest = RestClient("https://x", api_key="pk_live_abc123", session=session)
+    rest.token = "some-old-jwt"
+
+    rest.create_preview("TIC_TAC_TOE")
+
+    assert session.calls[0]["headers"] == {"Authorization": "Bearer pk_live_abc123"}
+
+
 def test_create_match_sends_opponent_body_and_auth_header():
     session = FakeSession(responses=[
         FakeResponse(200, {"token": "jwt"}),

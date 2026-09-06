@@ -9,15 +9,16 @@
         match.submit_move(move)
     print(f"Result: {match.result}, payout: ${match.payout}")
 
-...adapted to what the platform actually exposes today: auth is
-username/password (JWT), `game` is one of `playgentik.GAME_TYPES`, and
-there's no stake/payout economy yet - `join_queue`'s `**extra` (like
-`stake=`) is accepted and forwarded for when that lands server-side, but
-ignored until then. See `queue_and_play.py` for the closer-to-real,
-fully-automated version of this loop.
+...adapted to what the platform actually exposes today: `game` is one of
+`playgentik.GAME_TYPES`, and there's no stake/payout economy yet -
+`join_queue`'s `**extra` (like `stake=`) is accepted and forwarded for
+when that lands server-side, but ignored until then. `api_key` auth is
+real, though - generate one from the app's API Keys page and this is
+otherwise exactly the landing-page snippet. See `queue_and_play.py` for
+the closer-to-real, fully-automated version of this loop.
 
     python examples/quickstart.py --base-url http://localhost:5173 \
-        --username my_agent --password secret123 --game TIC_TAC_TOE
+        --api-key pk_live_... --game TIC_TAC_TOE
 """
 
 import argparse
@@ -40,12 +41,17 @@ def my_model_decide(state, valid_moves):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://localhost:5173")
-    parser.add_argument("--username", default="quickstart_agent")
-    parser.add_argument("--password", default="agent-password-123")
+    parser.add_argument("--api-key", help="pk_live_... from the app's API Keys page (recommended)")
+    parser.add_argument("--username", help="only needed if not passing --api-key - requires reCAPTCHA, won't work from a script")
+    parser.add_argument("--password")
     parser.add_argument("--game", default="TIC_TAC_TOE", choices=playgentik.GAME_TYPES)
     args = parser.parse_args()
+    if not args.api_key and not (args.username and args.password):
+        parser.error("--api-key is required (or --username/--password, which won't actually work from a script)")
 
-    agent = playgentik.Client(base_url=args.base_url, username=args.username, password=args.password)
+    agent = playgentik.Client(
+        base_url=args.base_url, api_key=args.api_key, username=args.username, password=args.password
+    )
     match = agent.join_queue(game=args.game)
     print(f"Connected: {match}")
 

@@ -13,43 +13,67 @@ from .rest import RestClient
 
 
 class Client:
-    """Register/log in once, then create or join matches and get back a
-    ready-to-play `Match`.
+    """Get a ready-to-play `Match` from one call, no separate login step.
 
     >>> import playgentik
     >>> agent = playgentik.Client(
     ...     base_url="https://arena.example.com",
-    ...     username="my_agent", password="secret123",
+    ...     api_key="pk_live_...",  # from the app's API Keys page
     ... )
     >>> match = agent.join_queue(game="TIC_TAC_TOE")
     >>> result = match.play(playgentik.RandomPlayer())
+
+    `api_key` is the recommended way to authenticate a live agent -
+    generate one from the app's API Keys page (you need to be logged in
+    as a human to do that once; the key itself needs no further login).
+    It's used for both the REST calls above (`join_queue`, etc.) and the
+    MCP session itself once you're in a match - one key, no separate
+    login step, and it doesn't expire the way a login session eventually
+    would.
+
+    Username+password still works (`Client(base_url, username=...,
+    password=...)`, no `api_key`) but requires solving a reCAPTCHA v3
+    challenge server-side, which only a real browser can do - not usable
+    from a plain script. It's here for parity with the web app's own
+    login, not as the recommended path for an agent.
     """
 
     def __init__(
         self,
         base_url: str,
         *,
-        username: str,
-        password: str,
-        email: Optional[str] = None,
         api_key: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        email: Optional[str] = None,
         auto_login: bool = True,
     ):
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.password = password
-        self.email = email or f"{username}@example.com"
-        # Optional platform API key (pk_live_...), forwarded to every Match
-        # this Client creates as a Bearer header alongside its connect
-        # token - see McpSession's docstring.
+        self.email = email or (f"{username}@example.com" if username else None)
+        # Forwarded to RestClient (authenticates join_queue/create_match/
+        # etc. directly, no login() needed) and to every Match this Client
+        # creates (authenticates the MCP session too) - see McpSession's
+        # docstring.
         self.api_key = api_key
-        self.rest = RestClient(self.base_url)
-        if auto_login:
+        self.rest = RestClient(self.base_url, api_key=api_key)
+        if not api_key and auto_login:
+            if not username or not password:
+                raise ValueError(
+                    "Provide api_key=... (recommended - see the app's API Keys page), or both "
+                    "username= and password= to log in/register instead."
+                )
             self.login()
 
     def login(self) -> str:
         """Log in if `username` already has an account, register it
-        otherwise. Called automatically unless `auto_login=False`."""
+        otherwise. Requires solving a reCAPTCHA v3 challenge server-side -
+        only a real browser can do that, so this isn't usable from a plain
+        script; pass `api_key=...` instead if that's what you're building.
+        Called automatically unless `api_key` is set or `auto_login=False`."""
+        if not self.username or not self.password:
+            raise ValueError("username and password are required to call login().")
         return self.rest.register_or_login(self.email, self.username, self.password)
 
     # -- session creation, one call per way to start a match ---------------

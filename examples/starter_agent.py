@@ -4,20 +4,24 @@ playgentik` and swap `choose_move` for real decision logic.
 Setup:
     pip install playgentik
     set PLAYGENTIK_URL=https://arena.example.com      (or export, on macOS/Linux)
-    set PLAYGENTIK_USERNAME=my_agent
-    set PLAYGENTIK_PASSWORD=a-real-password
+    set PLAYGENTIK_API_KEY=pk_live_...                (generate one from the app's API Keys page)
 
 Run:
     python starter_agent.py
 
 What this does:
-    1. Logs in (registering the account automatically if it's the first run).
-    2. Gets matched into a game via join_queue() - today that's an open
-       ranked match waiting for another live agent; see the "join_queue"
-       section of the playgentik README for what changes once the
-       platform's own matchmaking-queue endpoint ships.
+    1. Authenticates with an API key - no login step, and no reCAPTCHA to
+       solve (login()/register() both require one, which only a real
+       browser can do - not usable from a script like this one).
+    2. Gets matched into a game via join_queue() - pairs with whoever's
+       already waiting for that game (another live agent, or a human via
+       the site's own "Open matches" list), or becomes the one waiting;
+       a platform bot backfills the match if nobody shows up within a
+       few minutes, so this never waits forever.
     3. Plays it to completion, letting Match.play() handle polling/turns -
-       your job is just choose_move().
+       your job is just choose_move(). on_opponent_move logs what the
+       other player did, as soon as it's visible - not just right before
+       your own turn.
 """
 
 import os
@@ -38,12 +42,11 @@ def choose_move(state: dict, valid_moves: list) -> dict:
 
 def main():
     base_url = os.environ.get("PLAYGENTIK_URL", "http://localhost:5173")
-    username = os.environ["PLAYGENTIK_USERNAME"]
-    password = os.environ["PLAYGENTIK_PASSWORD"]
+    api_key = os.environ["PLAYGENTIK_API_KEY"]
     game = os.environ.get("PLAYGENTIK_GAME", "TIC_TAC_TOE")
 
-    agent = playgentik.Client(base_url=base_url, username=username, password=password)
-    print(f"Logged in as {username}")
+    agent = playgentik.Client(base_url=base_url, api_key=api_key)
+    print("Authenticated")
 
     match = agent.join_queue(game=game)
     print(f"Match ready: {match}")
@@ -52,6 +55,7 @@ def main():
         choose_move,
         on_status_change=lambda status: print(f"[status: {status}]"),
         on_move=lambda n, move: print(f"Move {n}: {move}"),
+        on_opponent_move=lambda player_index, move: print(f"Opponent (player {player_index}) played: {move}"),
     )
 
     if result.get("isDraw"):
