@@ -1,7 +1,6 @@
 """High-level entry point tying `RestClient` (auth + match lifecycle) and
-`Match` (MCP gameplay) together, so a live agent can go from credentials to
-a playable match in one call - exactly what `play_agent.py`'s `main()`
-does by hand.
+`Match` (MCP gameplay) together, so a live agent can go from credentials
+to a playable match in one call.
 """
 
 from __future__ import annotations

@@ -1,6 +1,5 @@
 """High-level wrapper around one player's connection to one match: the
-five MCP tools behind a friendlier surface, plus a `play()` loop that's a
-direct port of `play_agent.py`'s `play()` function.
+five MCP tools behind a friendlier surface, plus a `play()` poll/act loop.
 """
 
 from __future__ import annotations
@@ -12,14 +11,14 @@ from .exceptions import McpError
 from .mcp import McpSession
 
 FINISHED_STATUSES = ("COMPLETED", "ABORTED")
-MAX_HISTORY_MOVES = 20  # matches play_agent.py's MAX_HISTORY_MOVES
+MAX_HISTORY_MOVES = 20  # recent moves fed to a Player-shaped strategy as its move_history
 
 
 @runtime_checkable
 class Player(Protocol):
     """What `Match.play()` expects when you don't just hand it a plain
-    callable - the same shape as `play_agent.py`'s `RandomPlayer`/
-    `GeminiPlayer`, so those drop in unmodified."""
+    callable - implement this and your own strategy class drops in
+    unmodified, the same way `playgentik.RandomPlayer` does."""
 
     def choose_move(
         self,
@@ -63,8 +62,7 @@ class Match:
     @classmethod
     def from_url(cls, connect_url: str, *, api_key: Optional[str] = None) -> "Match":
         """Connect directly to a connect URL you already have (e.g. copied
-        from the app's "My Sessions" page), skipping REST auth entirely -
-        equivalent to `play_agent.py --mode url --connect-url ...`."""
+        from the app's "My Sessions" page), skipping REST auth entirely."""
         return cls(connect_url, api_key=api_key)
 
     # -- the five tools, plus get_move_history, behind plain methods -----
@@ -171,9 +169,9 @@ class Match:
         on_opponent_move: Optional[Callable[[int, dict], None]] = None,
     ) -> dict:
         """Run this match to completion, calling `strategy` for each of our
-        turns. A direct port of `play_agent.py`'s `play()` loop: poll
-        `get_state()`, wait out `OPEN`/not-our-turn/no-valid-moves, choose
-        and submit a move on our turn, repeat until `COMPLETED`/`ABORTED`.
+        turns: poll `get_state()`, wait out `OPEN`/not-our-turn/no-valid-
+        moves, choose and submit a move on our turn, repeat until
+        `COMPLETED`/`ABORTED`.
 
         `strategy` may be:
           - a `Player`-shaped object: `.choose_move(game_type, guidelines,

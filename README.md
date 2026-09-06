@@ -44,11 +44,14 @@ This wraps two things the Playgentik server actually exposes:
    `get_move_history`).
 
 It was built and verified directly against the platform's own server
-source (`server/app/mcp/protocol.py`, `tools.py`, `routes.py`) and its
-reference agent script (`play_agent.py`) — copies of which live in
-[`reference/server-mcp/`](reference/server-mcp/) for anyone maintaining
-this package. If those files change upstream, re-diff against this repo's
-`src/playgentik/mcp.py` and `rest.py`.
+source (`server/app/mcp/protocol.py`, `tools.py`, `routes.py`) — copies of
+which live in [`reference/server-mcp/`](reference/server-mcp/) for anyone
+maintaining this package. If those files change upstream, re-diff against
+this repo's `src/playgentik/mcp.py` and `rest.py`. (The platform's own
+`play_agent.py` reference script that this package's design was originally
+ported from - `Match.play()`'s loop shape, `RestClient`'s REST calls - has
+since been retired in favor of this package itself, so it's no longer
+mirrored here.)
 
 ## Install
 
@@ -89,8 +92,8 @@ Every method above returns a ready-to-play `Match`.
 
 ### `Match.play(strategy)`
 
-Runs the full poll/act loop (a direct port of `play_agent.py`'s `play()`)
-until the match ends, and returns the final result. `strategy` is either:
+Runs the full poll/act loop until the match ends, and returns the final
+result. `strategy` is either:
 
 - a plain callable: `fn(state, valid_moves) -> move`
 - a `Player`-shaped object: `.choose_move(game_type, guidelines, state, valid_moves, player_index, move_history) -> move`
@@ -149,8 +152,7 @@ either way.
   snippet almost verbatim, with a real poll delay added.
 - [`examples/queue_and_play.py`](examples/queue_and_play.py) — a fully
   automated agent with a CLI: authenticate, get matched (or practice/join
-  by id), and play to completion via `Match.play()`. Mirrors
-  `play_agent.py`'s CLI shape.
+  by id), and play to completion via `Match.play()`.
 
 ```bash
 python examples/queue_and_play.py --base-url http://localhost:5173 \
@@ -178,12 +180,14 @@ src/playgentik/
   players.py      # RandomPlayer
   games.py        # GAME_TYPES
   exceptions.py
+  _version.py     # single source of truth for __version__ - see "Publishing"
 examples/
   starter_agent.py
   quickstart.py
   queue_and_play.py
 tests/
 reference/server-mcp/   # server-side source this package was verified against
+scripts/release.py      # bump _version.py, commit, tag, push - see "Publishing"
 .github/workflows/publish.yml   # PyPI trusted-publishing CI (see "Publishing")
 LICENSE
 ```
@@ -198,13 +202,13 @@ that for a short-lived upload credential at publish time.
 
 **One-time setup (only you can do these — they need your accounts):**
 
-1. Push this repo to GitHub at `playgentik/playgentik-module` (must match
+1. Push this repo to GitHub at `Playgentik/playgentik-python` (must match
    exactly — that repo path is what both PyPI and the workflow trust).
 2. On PyPI (create an account first if needed):
    [pypi.org/manage/account/publishing](https://pypi.org/manage/account/publishing/)
    → "Add a new pending publisher" → fill in:
    - PyPI project name: `playgentik`
-   - Owner: `playgentik`, Repository: `playgentik-module`
+   - Owner: `Playgentik`, Repository: `playgentik-python`
    - Workflow name: `publish.yml`
    - Environment name: `pypi`
    (Repeat on [test.pypi.org](https://test.pypi.org/manage/account/publishing/)
@@ -217,14 +221,25 @@ that for a short-lived upload credential at publish time.
 
 **Every release after that:**
 
-1. Bump `version` in [`pyproject.toml`](pyproject.toml).
-2. Commit, tag (`git tag v0.1.0`), push the tag.
-3. On GitHub, "Draft a new release" from that tag → "Publish release".
-   That fires the workflow: tests run, the sdist/wheel are built, and it
-   publishes straight to PyPI.
+```bash
+python scripts/release.py           # patch bump: 0.2.0 -> 0.2.1
+python scripts/release.py minor     # 0.2.0 -> 0.3.0
+python scripts/release.py major     # 0.2.0 -> 1.0.0
+python scripts/release.py 0.3.0     # set an explicit version
+```
 
-To dry-run against TestPyPI first without cutting a release: Actions tab →
-"Publish to PyPI" → "Run workflow" → target `testpypi`.
+[`scripts/release.py`](scripts/release.py) bumps `__version__` in
+`src/playgentik/_version.py` (the single source of truth — see "Project
+layout" above; `pyproject.toml` reads it dynamically instead of declaring
+its own copy), then commits, tags, and pushes for you. It stops short of
+actually publishing — it ends by printing a GitHub "new release" URL, and
+you still have to open that and click "Publish release" yourself. That
+manual click is what fires the workflow (tests → build sdist/wheel →
+PyPI); keeping it manual means a bad `git push` can never accidentally
+burn a PyPI version (uploads there are permanent).
+
+To dry-run against TestPyPI first without cutting a real release: Actions
+tab → "Publish to PyPI" → "Run workflow" → target `testpypi`.
 
 **Local sanity check before any of the above** (optional, but catches
 metadata problems before CI does):

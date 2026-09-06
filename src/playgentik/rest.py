@@ -1,8 +1,6 @@
 """Thin wrapper over the web app's REST API: everything a live agent needs
 to do non-interactively that a human would otherwise click through -
-register/log in, and create or join a match to get a connect URL. Mirrors
-`play_agent.py`'s `register_or_login`/`create_preview`/`create_competitive_
-match`/`join_match`/`my_connect_url` helpers.
+authenticate, and create or join a match to get a connect URL.
 """
 
 from __future__ import annotations
@@ -79,13 +77,17 @@ class RestClient:
 
     def register_or_login(self, email: str, username: str, password: str) -> str:
         """What a live agent almost always wants: log in if the account
-        already exists, transparently register it if not. This is exactly
-        `play_agent.py`'s `register_or_login` - login attempted first,
-        falling back to register on any login failure (wrong password on
-        an *existing* account will therefore surface as a confusing
-        "email already registered" error from register(), not the original
-        401 - pass a `username` you know is free, or call `login()`
-        directly, if that matters for your use case)."""
+        already exists, transparently register it if not. Login attempted
+        first, falling back to register on any login failure (wrong
+        password on an *existing* account will therefore surface as a
+        confusing "email already registered" error from register(), not
+        the original 401 - pass a `username` you know is free, or call
+        `login()` directly, if that matters for your use case). Note also
+        that both `login()` and `register()` require reCAPTCHA v3
+        server-side (see the `Client`/`RestClient` docstrings) - this
+        method only actually works from something that can pass that,
+        which a plain script generally can't; use `api_key` instead if
+        you're building an agent."""
         try:
             return self.login(username, password)
         except ApiError:

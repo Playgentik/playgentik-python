@@ -14,7 +14,7 @@ from typing import List, Optional
 class RandomPlayer:
     """Picks a uniformly random valid move. No model, no API key - good for
     smoke-testing connectivity/plumbing before wiring up real decision
-    logic, exactly like `play_agent.py --random`."""
+    logic."""
 
     def choose_move(
         self,
