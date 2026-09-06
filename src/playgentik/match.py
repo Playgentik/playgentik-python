@@ -43,6 +43,15 @@ class Match:
     from a connect URL via `Match.from_url()`.
     """
 
+    # Class-level defaults (not just set in __init__) so an instance built
+    # via Match.__new__(Match) - the pattern this package's own tests use
+    # to swap in a fake McpSession without a real connection - still finds
+    # these via normal attribute lookup instead of raising AttributeError
+    # the first time play() touches them.
+    _player_index: Optional[int] = None
+    _opponent_last_move: Optional[dict] = None
+    _opponent_last_move_number: Optional[int] = None
+
     def __init__(self, connect_url: str, *, api_key: Optional[str] = None, match_id: Optional[str] = None):
         self.connect_url = connect_url
         self.match_id = match_id
@@ -72,6 +81,9 @@ class Match:
         finished. `{matchId, gameType, status, yourPlayerIndex, isYourTurn,
         isDraw, winnerPlayerIndex, state}`."""
         self._last_state = self._mcp.get_state()
+        player_index = self._last_state.get("yourPlayerIndex")
+        if player_index is not None:
+            self._player_index = player_index
         return self._last_state
 
     def list_valid_moves(self) -> List[dict]:
@@ -94,6 +106,44 @@ class Match:
         recent N, e.g. for feeding a model's context window."""
         moves = self._mcp.get_move_history()
         return moves[-limit:] if limit else moves
+
+    # -- opponent's last move ------------------------------------------------
+
+    @property
+    def opponent_last_move(self) -> Optional[dict]:
+        """The most recent move the *other* player made - `{moveNumber,
+        playerIndex, move}`, or `None` before they've moved yet. Kept
+        current automatically while `play()` is running (it now checks for
+        a new opponent move every loop iteration, not just right before
+        your own turn - see `on_opponent_move` below for a callback
+        instead of polling this). Driving your own loop instead of
+        `play()`? Call `refresh_opponent_last_move()` each time round it."""
+        return self._opponent_last_move
+
+    def refresh_opponent_last_move(self) -> Optional[dict]:
+        """Fetches the move history and updates/returns `opponent_last_move`
+        from it. `play()` already does this every iteration; call this
+        yourself only if you're polling `get_state()`/`list_valid_moves()`
+        by hand instead of using `play()`."""
+        if self._player_index is None:
+            self.get_state()
+        return self._note_opponent_move(self.get_move_history())
+
+    def _note_opponent_move(
+        self, history: List[dict], on_opponent_move: Optional[Callable[[int, dict], None]] = None
+    ) -> Optional[dict]:
+        latest = None
+        for entry in reversed(history):
+            if entry.get("playerIndex") != self._player_index:
+                latest = entry
+                break
+        if latest is None or latest.get("moveNumber") == self._opponent_last_move_number:
+            return self._opponent_last_move
+        self._opponent_last_move = latest
+        self._opponent_last_move_number = latest.get("moveNumber")
+        if on_opponent_move:
+            on_opponent_move(latest["playerIndex"], latest)
+        return self._opponent_last_move
 
     # -- convenience --------------------------------------------------------
 
@@ -118,6 +168,7 @@ class Match:
         poll_interval: float = 2.0,
         on_status_change: Optional[Callable[[str], None]] = None,
         on_move: Optional[Callable[[int, dict], None]] = None,
+        on_opponent_move: Optional[Callable[[int, dict], None]] = None,
     ) -> dict:
         """Run this match to completion, calling `strategy` for each of our
         turns. A direct port of `play_agent.py`'s `play()` loop: poll
@@ -128,6 +179,14 @@ class Match:
           - a `Player`-shaped object: `.choose_move(game_type, guidelines,
             state, valid_moves, player_index, move_history)`
           - a plain callable: `fn(state, valid_moves) -> move`
+
+        `on_opponent_move(player_index, move)` fires the moment a new move
+        from the *other* player shows up in the match's history - checked
+        every loop iteration, including while waiting for their turn, not
+        only right before yours. Also available without a callback via the
+        `opponent_last_move` property, updated the same way. Both reflect
+        `get_move_history()`, so they see a move the instant it's recorded
+        server-side - no separate polling of your own needed.
 
         Returns the final `get_result()` payload. Raises `McpError` if
         `max_moves` is hit first (a safety cap against a runaway/stuck
@@ -154,6 +213,14 @@ class Match:
                 time.sleep(poll_interval)
                 continue
 
+            # Fetched (and opponent_last_move refreshed from it) every
+            # iteration from here on, whether or not it's currently your
+            # turn - so on_opponent_move/opponent_last_move reflect a new
+            # opponent move as soon as it's visible, not just once it's
+            # your turn again.
+            move_history = self.get_move_history(limit=MAX_HISTORY_MOVES)
+            self._note_opponent_move(move_history, on_opponent_move)
+
             if not state_view["isYourTurn"]:
                 time.sleep(poll_interval)
                 continue
@@ -163,7 +230,6 @@ class Match:
                 time.sleep(poll_interval)
                 continue
 
-            move_history = self.get_move_history(limit=MAX_HISTORY_MOVES)
             move = choose(guidelines, state_view, valid_moves, move_history)
             self.submit_move(move)
             moves_made += 1

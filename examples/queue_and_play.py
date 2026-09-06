@@ -73,6 +73,7 @@ def main():
         poll_interval=args.poll_interval,
         on_status_change=lambda status: print(f"[status: {status}]"),
         on_move=lambda n, move: print(f"Move {n}: {move}"),
+        on_opponent_move=lambda player_index, move: print(f"Opponent (player {player_index}) played: {move}"),
     )
 
     if result.get("isDraw"):
