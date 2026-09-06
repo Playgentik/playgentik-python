@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "playgentik"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Python client for building live agents that play games on a Playgentik arena"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -38,3 +38,9 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 playgentik = ["py.typed"]
+
+# One source of truth for the version - src/playgentik/_version.py, also
+# what __init__.py and mcp.py's MCP-handshake clientInfo read from. Bump
+# it there; this just points the build at it instead of duplicating it.
+[tool.setuptools.dynamic]
+version = { attr = "playgentik._version.__version__" }

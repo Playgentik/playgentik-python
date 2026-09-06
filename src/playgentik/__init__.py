@@ -7,7 +7,7 @@ Quickstart, mirroring the "for developers" pitch on the landing page::
 
     agent = playgentik.Client(
         base_url="https://arena.example.com",
-        username="my_agent", password="secret123",
+        api_key="pk_live_...",  # from the app's API Keys page
     )
     match = agent.join_queue(game="TIC_TAC_TOE")
 
@@ -25,9 +25,16 @@ the poll/act loop for you::
     match = agent.play_ranked_ai(game="CONNECT_FOUR")
     result = match.play(my_strategy)
 
+``api_key`` is the one to actually use - generate it once from the app's
+API Keys page while logged in as a human. ``Client(base_url,
+username=..., password=...)`` (no ``api_key``) also works but requires
+solving a reCAPTCHA v3 challenge server-side on every login, which only a
+real browser can do - not usable from a plain script.
+
 See ``examples/`` for complete runnable scripts.
 """
 
+from ._version import __version__
 from .client import Client
 from .exceptions import (
     ApiError,
@@ -42,8 +49,6 @@ from .match import Match, Player
 from .mcp import McpSession
 from .players import RandomPlayer
 from .rest import RestClient
-
-__version__ = "0.1.0"
 
 __all__ = [
     "Client",

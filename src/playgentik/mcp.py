@@ -13,10 +13,11 @@ from typing import Any, List, Optional
 
 import requests
 
+from ._version import __version__
 from .exceptions import InvalidApiKeyError, McpError, SessionExpiredError, SessionNotFoundError
 
 PROTOCOL_VERSION = "2025-06-18"
-CLIENT_INFO = {"name": "playgentik-python", "version": "0.1.0"}
+CLIENT_INFO = {"name": "playgentik-python", "version": __version__}
 DEFAULT_TIMEOUT = 30.0
 
 
